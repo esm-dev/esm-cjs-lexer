@@ -1,28 +1,26 @@
 # esm-cjs-lexer
 
-A **WASM** module to parse the `module.exports` of a commonjs module, powered by [swc](https://github.com/swc-project/swc).
+A commonjs module lexer written in Rust for detecting the `module.exports` of a commonjs module. The lexer is powered by [swc](https://github.com/swc-project/swc), compiled to WebAssembly.
 
-## Installation
+## Usage
 
-esm-cjs-lexer only supports node.js environment currently. You can install it via `npm`:
+esm-cjs-lexer currently only supports Node.js environment. You can install it via npm CLI:
 
 ```bash
 npm i esm-cjs-lexer
 ```
 
-## Usage
-
-esm-cjs-lexer provides a `parse` function that lookups the `module.exports` of a commonjs module by parsing the given code. The function returns an object with two properties: `exports` and `reexports`. The `exports` property is an array of the exported names, and the `reexports` property is an array of the reexported modules.
+esm-cjs-lexer provides a `parse` function that detects the `module.exports` of a commonjs module. The function returns an object with two properties: `exports` and `reexports`. The `exports` property is an array of the exported names, and the `reexports` property is an array of the reexported modules.
 
 ```js
 const { parse } = require("esm-cjs-lexer");
 
-// named exports
+// named exports by assignment
 // exports: ["a", "b", "c", "__esModule", "foo"]
 const { exports } = parse("index.cjs", `
   exports.a = "a";
   module.exports.b = "b";
-  Object.defineProperty(exports, "c", { value: "c" });
+  Object.defineProperty(exports, "c", { value: 1 });
   Object.defineProperty(module.exports, "__esModule", { value: true })
   const key = "foo"
   Object.defineProperty(exports, key, { value: "e" });
@@ -34,7 +32,7 @@ const { reexports } = parse("index.cjs", `
   module.exports = require("./lib");
 `);
 
-// object exports(spread supported)
+// object exports(spread syntax supported)
 // exports: ["foo", "baz"]
 // reexports: ["./lib"]
 const { exports, reexports } = parse("index.cjs", `
@@ -43,7 +41,7 @@ const { exports, reexports } = parse("index.cjs", `
   module.exports = { foo, ...obj, ...require("./lib") };
 `);
 
-// if condition
+// if expression
 // exports: ["foo", "cjs"]
 const { exports } = parse("index.cjs", `
   module.exports.a = "a";
@@ -57,11 +55,11 @@ const { exports } = parse("index.cjs", `
     exports.esm = true;
   }
   if (false) {
-    exports.ignore = "ignore";
+    exports.unreachable = true;
   }
 `);
 
-// if condition by checking `process.env.NODE_ENV`
+// condition exports by checking if `process.env.NODE_ENV` equals to `nodeEnv` option
 // reexports: ["./index.development.js"]
 const { reexports } = parse("index.cjs", `
   if (process.env.NODE_ENV === "development") {
@@ -74,35 +72,17 @@ const { reexports } = parse("index.cjs", `
 // block&IIFE
 // exports: ["foo", "baz", "__esModule"]
 const { exports } = parse("index.cjs", `
+  {
+    exports.foo = 'bar'
+  }
   (function () {
-    exports.foo = "bar"
+    exports.baz = 'qux'
     if (true) {
       return
     }
-    exports.ignore = "-"
+    exports.unreachable = true
   })();
-  {
-    exports.baz = 123
-  }
   exports.__esModule = true
-`);
-
-// function called exports
-// exports: ["foo"]
-const { exports } = parse("index.cjs", `
-  function Fn() {
-    return { foo: "bar" }
-  }
-  module.exports = Fn()
-`);
-
-// annotated export names for ESM import
-// exports: ["foo", "bar"]
-const { exports } = parse("lib.cjs", `
-0 && (module.exports = {
- foo,
- bar,
-})
 `);
 
 // UMD format
@@ -117,13 +97,30 @@ const { exports } = parse("index.cjs", `
   }))
 `);
 
-// function reexports
+// exports by calling a function
+// exports: ["foo"]
+const { exports } = parse("index.cjs", `
+  function module() {
+    return { foo: "bar" }
+  }
+  module.exports = module()
+`);
+
+// annotated export names for ESM import
+// exports: ["foo", "bar"]
+const { exports } = parse("lib.cjs", `
+0 && (module.exports = {
+ foo,
+ bar,
+})
+`);
+
+// call reexports
 // reexports: ["./lib()"]
 const { reexports } = parse("index.cjs", `
   module.exports = require("./lib")()
 `);
-
-// apply function exports (call mode)
+// apply call reexports
 // exports: ["foo"]
 const { exports } = parse("lib.cjs", `
   module.exports = function() {
