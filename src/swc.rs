@@ -7,7 +7,7 @@ use swc_common::comments::SingleThreadedComments;
 use swc_common::errors::{Handler, HandlerFlags};
 use swc_common::{FileName, SourceMap};
 use swc_ecmascript::ast::{EsVersion, Module, Program};
-use swc_ecmascript::parser::{lexer::Lexer, EsConfig, StringInput, Syntax};
+use swc_ecmascript::parser::{lexer::Lexer, EsSyntax, StringInput, Syntax};
 use swc_ecmascript::visit::FoldWith;
 
 pub struct SWC {
@@ -21,7 +21,7 @@ impl SWC {
     let source_file = source_map.new_source_file(FileName::Real(Path::new(specifier).to_path_buf()), source.into());
     let sm = &source_map;
     let error_buffer = ErrorBuffer::new(specifier);
-    let syntax = Syntax::Es(EsConfig::default());
+    let syntax = Syntax::Es(EsSyntax::default());
     let input = StringInput::from(&*source_file);
     let comments = SingleThreadedComments::default();
     let lexer = Lexer::new(syntax, EsVersion::Es2020, input, Some(&comments));
