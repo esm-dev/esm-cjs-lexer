@@ -1,4 +1,5 @@
-use std::{fmt, sync::Arc, sync::RwLock};
+use std::fmt;
+use std::sync::{Arc, RwLock};
 use swc_common::{
   errors::{Diagnostic, DiagnosticBuilder, Emitter},
   Loc, Span,

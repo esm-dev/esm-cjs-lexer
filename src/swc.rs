@@ -2,7 +2,7 @@ use crate::cjs::CJSLexer;
 use crate::error::{DiagnosticBuffer, ErrorBuffer};
 
 use indexmap::{IndexMap, IndexSet};
-use std::{path::Path, rc::Rc};
+use std::path::Path;
 use swc_common::{
   comments::SingleThreadedComments,
   errors::{Handler, HandlerFlags},
@@ -16,10 +16,7 @@ use swc_ecmascript::{
 };
 
 pub struct SWC {
-  pub specifier: String,
   pub module: Module,
-  pub source_map: Rc<SourceMap>,
-  pub comments: SingleThreadedComments,
 }
 
 impl SWC {
@@ -29,7 +26,7 @@ impl SWC {
     let source_file = source_map.new_source_file(FileName::Real(Path::new(specifier).to_path_buf()), source.into());
     let sm = &source_map;
     let error_buffer = ErrorBuffer::new(specifier);
-    let syntax = Syntax::Es(get_es_config());
+    let syntax = Syntax::Es(EsConfig::default());
     let input = StringInput::from(&*source_file);
     let comments = SingleThreadedComments::default();
     let lexer = Lexer::new(syntax, EsVersion::Es2020, input, Some(&comments));
@@ -51,42 +48,31 @@ impl SWC {
       })
       .unwrap();
 
-    Ok(SWC {
-      specifier: specifier.into(),
-      module,
-      source_map: Rc::new(source_map),
-      comments,
-    })
+    Ok(SWC { module })
   }
 
-  /// parse export names in the cjs module.
+  /// get named exports and reexports of the module.
   pub fn parse_cjs_exports(
     &self,
     node_env: &str,
     call_mode: bool,
   ) -> Result<(Vec<String>, Vec<String>), anyhow::Error> {
     let mut lexer = CJSLexer {
+      call_mode,
       node_env: node_env.to_owned(),
-      call_mode: call_mode,
       fn_returned: false,
       idents: IndexMap::new(),
       exports_alias: IndexSet::new(),
-      exports: IndexSet::new(),
+      named_exports: IndexSet::new(),
       reexports: IndexSet::new(),
     };
     let program = Program::Module(self.module.clone());
     program.fold_with(&mut lexer);
     Ok((
-      lexer.exports.into_iter().collect(),
+      lexer.named_exports.into_iter().collect(),
       lexer.reexports.into_iter().collect(),
     ))
   }
 }
 
-fn get_es_config() -> EsConfig {
-  EsConfig {
-    import_attributes: true,
-    jsx: false,
-    ..EsConfig::default()
-  }
-}
+
