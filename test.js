@@ -22,4 +22,4 @@ if (ret2.exports.join(',') !== 'foo,bar,prod') {
   throw new Error('unexpected exports of index.js: ' + ret2.exports.join(','))
 }
 
-console.log("done")
+console.log("✅ test passed")
