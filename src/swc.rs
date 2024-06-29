@@ -1,18 +1,14 @@
 use crate::cjs::CJSLexer;
 use crate::error::{DiagnosticBuffer, ErrorBuffer};
 
-use std::path::Path;
 use indexmap::{IndexMap, IndexSet};
-use swc_common::{
-  comments::SingleThreadedComments,
-  errors::{Handler, HandlerFlags},
-  FileName, SourceMap,
-};
-use swc_ecmascript::{
-  ast::{EsVersion, Module, Program},
-  parser::{lexer::Lexer, EsConfig, StringInput, Syntax},
-  visit::FoldWith,
-};
+use std::path::Path;
+use swc_common::comments::SingleThreadedComments;
+use swc_common::errors::{Handler, HandlerFlags};
+use swc_common::{FileName, SourceMap};
+use swc_ecmascript::ast::{EsVersion, Module, Program};
+use swc_ecmascript::parser::{lexer::Lexer, EsConfig, StringInput, Syntax};
+use swc_ecmascript::visit::FoldWith;
 
 pub struct SWC {
   pub module: Module,

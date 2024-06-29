@@ -1,5 +1,4 @@
 use indexmap::{IndexMap, IndexSet};
-use std::vec;
 use swc_common::DUMMY_SP;
 use swc_ecmascript::ast::*;
 use swc_ecmascript::visit::{noop_fold_type, Fold};

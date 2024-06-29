@@ -3,8 +3,8 @@ mod error;
 mod swc;
 mod test;
 
-use swc::SWC;
 use serde::{Deserialize, Serialize};
+use swc::SWC;
 use wasm_bindgen::prelude::*;
 
 #[derive(Deserialize)]
