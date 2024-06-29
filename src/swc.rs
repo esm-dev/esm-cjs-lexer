@@ -1,16 +1,15 @@
 use crate::cjs::CJSLexer;
 use crate::error::{DiagnosticBuffer, ErrorBuffer};
 
-use indexmap::{IndexMap, IndexSet};
 use std::path::Path;
+use indexmap::{IndexMap, IndexSet};
 use swc_common::{
   comments::SingleThreadedComments,
   errors::{Handler, HandlerFlags},
   FileName, SourceMap,
 };
-use swc_ecma_ast::EsVersion;
 use swc_ecmascript::{
-  ast::{Module, Program},
+  ast::{EsVersion, Module, Program},
   parser::{lexer::Lexer, EsConfig, StringInput, Syntax},
   visit::FoldWith,
 };

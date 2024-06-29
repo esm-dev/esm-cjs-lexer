@@ -1,9 +1,7 @@
 use std::fmt;
 use std::sync::{Arc, RwLock};
-use swc_common::{
-  errors::{Diagnostic, DiagnosticBuilder, Emitter},
-  Loc, Span,
-};
+use swc_common::errors::{Diagnostic, DiagnosticBuilder, Emitter};
+use swc_common::{Loc, Span};
 
 /// A buffer for collecting errors from the AST parser.
 #[derive(Debug, Clone)]
