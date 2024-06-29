@@ -39,6 +39,6 @@ pub fn parse(specifier: &str, code: &str, options: JsValue) -> Result<JsValue, J
     "production".to_owned()
   };
   let call_mode = if let Some(ok) = options.call_mode { ok } else { false };
-  let (exports, reexports) = ret.parse_cjs_exports(&node_env, call_mode).unwrap();
+  let (exports, reexports) = ret.get_exports(&node_env, call_mode);
   Ok(serde_wasm_bindgen::to_value(&Output { exports, reexports }).unwrap())
 }

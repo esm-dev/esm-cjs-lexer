@@ -20,8 +20,8 @@ pub struct SWC {
 }
 
 impl SWC {
-  /// parse source code.
-  pub fn parse(specifier: &str, source: &str) -> Result<Self, anyhow::Error> {
+  /// parse the module from the source code.
+  pub fn parse(specifier: &str, source: &str) -> Result<Self, DiagnosticBuffer> {
     let source_map = SourceMap::default();
     let source_file = source_map.new_source_file(FileName::Real(Path::new(specifier).to_path_buf()), source.into());
     let sm = &source_map;
@@ -39,24 +39,16 @@ impl SWC {
         ..HandlerFlags::default()
       },
     );
-    let module = parser
-      .parse_module()
-      .map_err(move |err| {
-        let mut diagnostic = err.into_diagnostic(&handler);
-        diagnostic.emit();
-        DiagnosticBuffer::from_error_buffer(error_buffer, |span| sm.lookup_char_pos(span.lo))
-      })
-      .unwrap();
-
+    let module = parser.parse_module().map_err(move |err| {
+      let mut diagnostic = err.into_diagnostic(&handler);
+      diagnostic.emit();
+      DiagnosticBuffer::from_error_buffer(error_buffer, |span| sm.lookup_char_pos(span.lo))
+    })?;
     Ok(SWC { module })
   }
 
   /// get named exports and reexports of the module.
-  pub fn parse_cjs_exports(
-    &self,
-    node_env: &str,
-    call_mode: bool,
-  ) -> Result<(Vec<String>, Vec<String>), anyhow::Error> {
+  pub fn get_exports(&self, node_env: &str, call_mode: bool) -> (Vec<String>, Vec<String>) {
     let mut lexer = CJSLexer {
       call_mode,
       node_env: node_env.to_owned(),
@@ -68,11 +60,9 @@ impl SWC {
     };
     let program = Program::Module(self.module.clone());
     program.fold_with(&mut lexer);
-    Ok((
+    (
       lexer.named_exports.into_iter().collect(),
       lexer.reexports.into_iter().collect(),
-    ))
+    )
   }
 }
-
-
