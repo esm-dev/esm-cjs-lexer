@@ -27,13 +27,13 @@ pub struct CJSLexer {
   pub fn_returned: bool,
   pub exports_alias: IndexSet<String>,
   pub idents: IndexMap<String, IdentKind>,
-  pub exports: IndexSet<String>,
+  pub named_exports: IndexSet<String>,
   pub reexports: IndexSet<String>,
 }
 
 impl CJSLexer {
   fn clear(&mut self) {
-    self.exports.clear();
+    self.named_exports.clear();
     self.reexports.clear();
   }
 
@@ -51,7 +51,7 @@ impl CJSLexer {
     } else if let Some(class) = self.as_class(expr) {
       self.clear();
       for name in get_class_static_names(&class) {
-        self.exports.insert(name);
+        self.named_exports.insert(name);
       }
     } else if let Some(FnDesc { stmts, extends }) = self.as_function(expr) {
       self.clear();
@@ -59,7 +59,7 @@ impl CJSLexer {
         self.walk_body(stmts, true);
       } else {
         for name in extends {
-          self.exports.insert(name);
+          self.named_exports.insert(name);
         }
       }
     } else if let Expr::Call(call) = expr {
@@ -316,7 +316,7 @@ impl CJSLexer {
             _ => None,
           };
           if let Some(name) = name {
-            self.exports.insert(name);
+            self.named_exports.insert(name);
           }
         }
         PropOrSpread::Spread(SpreadElement { expr, .. }) => match expr.as_ref() {
@@ -426,11 +426,17 @@ impl CJSLexer {
 
   fn is_exports_expr(&self, expr: &Expr) -> bool {
     match expr {
+      // (0, exports)
+      Expr::Seq(SeqExpr { exprs, .. }) => {
+        let last_expr = exprs.last().unwrap();
+        self.is_exports_expr(last_expr)
+      }
       Expr::Ident(id) => {
         let id = id.sym.as_ref();
         self.is_exports_ident(id)
       }
       Expr::Member(_) => is_member(expr, "module", "exports"),
+      Expr::Paren(ParenExpr { expr, .. }) => self.is_exports_expr(expr),
       _ => false,
     }
   }
@@ -448,9 +454,9 @@ impl CJSLexer {
 
   // exports.foo || (exports.foo = {})
   // foo = exports.foo || (exports.foo = {})
-  fn get_bare_export_names(&mut self, expr: &Expr) -> Option<String> {
+  fn get_export_name_of_call_arg(&mut self, expr: &Expr) -> Option<String> {
     if let Expr::Assign(assign) = expr {
-      return self.get_bare_export_names(assign.right.as_ref());
+      return self.get_export_name_of_call_arg(assign.right.as_ref());
     }
 
     if let Expr::Bin(bin) = expr {
@@ -499,7 +505,7 @@ impl CJSLexer {
               let obj_name = obj.sym.as_ref();
               if self.is_exports_ident(obj_name) {
                 // exports.foo = 'bar'
-                self.exports.insert(prop);
+                self.named_exports.insert(prop);
                 if let Expr::Assign(dep_assign) = assign.right.as_ref() {
                   self.get_exports_from_assign(dep_assign);
                 }
@@ -511,15 +517,15 @@ impl CJSLexer {
             }
             Expr::Member(_) => {
               if is_member(obj, "module", "exports") {
-                self.exports.insert(prop);
+                self.named_exports.insert(prop);
               }
             }
             _ => {}
           }
         }
       } else {
-        if let Some(bare_export_name) = self.get_bare_export_names(assign.right.as_ref()) {
-          self.exports.insert(bare_export_name);
+        if let Some(name) = self.get_export_name_of_call_arg(assign.right.as_ref()) {
+          self.named_exports.insert(name);
         }
       }
     }
@@ -545,13 +551,13 @@ impl CJSLexer {
               (&**obj, &*prop)
             {
               if obj_sym.as_ref().eq(webpack_require_sym) && prop_sym.as_ref().eq("r") {
-                self.exports.insert("__esModule".to_string());
+                self.named_exports.insert("__esModule".to_string());
               }
               if obj_sym.as_ref().eq(webpack_require_sym) && prop_sym.as_ref().eq("d") {
                 let CallExpr { args, .. } = &*call;
                 if let Some(ExprOrSpread { expr, .. }) = args.get(1) {
                   if let Expr::Lit(Lit::Str(Str { value, .. })) = &**expr {
-                    self.exports.insert(value.as_ref().to_string());
+                    self.named_exports.insert(value.as_ref().to_string());
                   }
                 }
               }
@@ -587,7 +593,7 @@ impl CJSLexer {
               if sym.as_ref().eq(webpack_exports_sym) {
                 if let MemberProp::Ident(prop) = prop {
                   if prop.sym.as_ref().eq("default") {
-                    self.exports.insert("default".to_string());
+                    self.named_exports.insert("default".to_string());
                   }
                 }
               }
@@ -616,7 +622,7 @@ impl CJSLexer {
                   let prop_sym_ref = prop_sym.as_ref();
 
                   if prop_sym_ref.eq("r") {
-                    self.exports.insert("__esModule".to_string());
+                    self.named_exports.insert("__esModule".to_string());
                     found_webpack_require_exprs = true;
                   }
                   if prop_sym_ref.eq("d") {
@@ -630,7 +636,7 @@ impl CJSLexer {
                               ..
                             }) = &**prop
                             {
-                              self.exports.insert(sym.as_ref().to_string());
+                              self.named_exports.insert(sym.as_ref().to_string());
                               found_webpack_require_exprs = true;
                             }
                           }
@@ -747,6 +753,7 @@ impl CJSLexer {
       })
       .sum();
   }
+
   fn is_umd_iife_call(&mut self, call: &CallExpr) -> Option<Vec<Stmt>> {
     if call.args.len() == 2 {
       let mut arg1 = call.args.get(1).unwrap().expr.as_ref();
@@ -953,21 +960,22 @@ impl CJSLexer {
 
   fn parse_expr(&mut self, expr: &Expr) {
     match expr {
+      Expr::Seq(SeqExpr { exprs, .. }) => {
+        for expr in exprs {
+          self.parse_expr(expr);
+        }
+      }
       // exports.foo = 'bar'
       // module.exports.foo = 'bar'
       // module.exports = { foo: 'bar' }
       // module.exports = { ...require('a'), ...require('b') }
       // module.exports = require('lib')
       // foo = exports.foo || (exports.foo = {})
-      Expr::Seq(SeqExpr { exprs, .. }) => {
-        for expr in exprs {
-          self.parse_expr(expr);
-        }
-      }
       Expr::Assign(assign) => {
         self.get_exports_from_assign(&assign);
       }
       // Object.defineProperty(exports, 'foo', { value: 'bar' })
+      // Object.defineProperty((0, exports), 'foo', { value: 'bar' })
       // Object.defineProperty(module.exports, 'foo', { value: 'bar' })
       // Object.defineProperty(module, 'exports', { value: { foo: 'bar' }})
       // Object.assign(exports, { foo: 'bar' })
@@ -1016,7 +1024,7 @@ impl CJSLexer {
           }
           if is_exports && with_value_or_getter {
             if let Some(name) = name {
-              self.exports.insert(name);
+              self.named_exports.insert(name);
             }
           }
           if is_module {
@@ -1028,7 +1036,7 @@ impl CJSLexer {
           let is_module = is_module_ident(call.args[0].expr.as_ref());
           let is_exports = self.is_exports_expr(call.args[0].expr.as_ref());
           for arg in &call.args[1..] {
-            if let Some(props) = self.as_obj(arg.expr.as_ref()) {
+            if let Some(props) = self.as_obj(&arg.expr) {
               if is_module {
                 let mut with_exports: Option<Expr> = None;
                 for prop in props {
@@ -1050,7 +1058,7 @@ impl CJSLexer {
               } else if is_exports {
                 self.use_object_as_exports(props);
               }
-            } else if let Some(reexport) = self.as_reexport(arg.expr.as_ref()) {
+            } else if let Some(reexport) = self.as_reexport(&arg.expr) {
               if is_exports {
                 self.reexports.insert(reexport);
               }
@@ -1077,8 +1085,8 @@ impl CJSLexer {
           for arg in &call.args {
             if arg.spread.is_none() {
               // (function() { ... })(exports.foo || (exports.foo = {}))
-              if let Some(bare_export_name) = self.get_bare_export_names(arg.expr.as_ref()) {
-                self.exports.insert(bare_export_name);
+              if let Some(name) = self.get_export_name_of_call_arg(&arg.expr) {
+                self.named_exports.insert(name);
               }
             }
           }
@@ -1096,8 +1104,8 @@ impl CJSLexer {
               // (function() { ... })(exports.foo || (exports.foo = {}))
               for arg in &call.args {
                 if arg.spread.is_none() {
-                  if let Some(bare_export_name) = self.get_bare_export_names(arg.expr.as_ref()) {
-                    self.exports.insert(bare_export_name);
+                  if let Some(name) = self.get_export_name_of_call_arg(&arg.expr) {
+                    self.named_exports.insert(name);
                   }
                 }
               }
@@ -1117,13 +1125,28 @@ impl CJSLexer {
         );
       }
       // 0 && (module.exports = { foo })
-      Expr::Bin(BinExpr { op, right, .. }) => {
+      // process.env.NODE_ENV === 'production' && (() => { module.exports = { foo } })()
+      Expr::Bin(BinExpr { left, op, right, .. }) => {
         if matches!(op, BinaryOp::LogicalAnd) {
-          if let Expr::Assign(assign) = right.as_ref() {
-            self.get_exports_from_assign(assign);
+          if let Expr::Call(call) = right.as_ref() {
+            if let Some(body) = is_iife_call(&call) {
+              if self.is_true(left) {
+                for arg in &call.args {
+                  if arg.spread.is_none() {
+                    // (function() { ... })(exports.foo || (exports.foo = {}))
+                    if let Some(name) = self.get_export_name_of_call_arg(&arg.expr) {
+                      self.named_exports.insert(name);
+                    }
+                  }
+                }
+                self.walk_body(body, false);
+              }
+            }
           } else if let Expr::Paren(paren) = right.as_ref() {
             if let Expr::Assign(assign) = paren.expr.as_ref() {
-              self.get_exports_from_assign(assign);
+              if is_lit_number(&left) || self.is_true(&left) {
+                self.get_exports_from_assign(assign);
+              }
             }
           }
         }
@@ -1172,8 +1195,8 @@ impl CJSLexer {
           for decl in var.as_ref().decls.iter() {
             self.try_to_mark_exports_alias(decl);
             if let Some(init_expr) = &decl.init {
-              if let Some(bare_export_name) = self.get_bare_export_names(init_expr) {
-                self.exports.insert(bare_export_name);
+              if let Some(name) = self.get_export_name_of_call_arg(init_expr) {
+                self.named_exports.insert(name);
               }
             }
           }
@@ -1475,12 +1498,12 @@ impl CJSLexer {
       fn_returned: false,
       idents: self.idents.clone(),
       exports_alias: self.exports_alias.clone(),
-      exports: self.exports.clone(),
+      named_exports: self.named_exports.clone(),
       reexports: self.reexports.clone(),
     };
     lexer.walk(body, as_fn);
     self.fn_returned = lexer.fn_returned;
-    self.exports = lexer.exports;
+    self.named_exports = lexer.named_exports;
     self.reexports = lexer.reexports;
   }
 }
@@ -1584,6 +1607,13 @@ fn is_string_literal(expr: &Expr, value: &str) -> bool {
     Expr::Lit(Lit::Str(Str {
       value: literal_value, ..
     })) => literal_value.eq(value),
+    _ => false,
+  }
+}
+
+fn is_lit_number(expr: &Expr) -> bool {
+  match expr {
+    Expr::Lit(Lit::Num(_)) => true,
     _ => false,
   }
 }
