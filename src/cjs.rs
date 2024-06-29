@@ -379,7 +379,7 @@ impl CJSLexer {
           Lit::Str(Str { value, .. }) => !value.as_ref().is_empty(),
           Lit::Null(_) => false,
           Lit::Num(Number { value, .. }) => *value != 0.0,
-          _ => false,
+          _ => true,
         }
       }
       Expr::Bin(BinExpr { op, left, right, .. }) => {
