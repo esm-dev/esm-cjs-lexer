@@ -1,6 +1,6 @@
 # esm-cjs-lexer
 
-A commonjs module lexer written in Rust for detecting the `module.exports` of a commonjs module. The lexer is powered by [swc](https://github.com/swc-project/swc), compiled to WebAssembly.
+A wasm module for detecting the `module.exports` of a CJS module, powered by [swc](https://github.com/swc-project/swc).
 
 ## Usage
 
