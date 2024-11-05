@@ -1,16 +1,16 @@
-# @esm.sh/cjs-module-lexer
+# cjs-module-lexer
 
 A lexer for detecting the `module.exports` of a CJS module, written in Rust and compiled to WebAssembly.
 
 ## Usage
 
-`@esm.sh/cjs-module-lexer` currently only supports Node.js environment. You can install it via npm CLI:
+cjs-module-lexer currently only supports Node.js environment. You can install it via npm CLI:
 
 ```bash
 npm i @esm.sh/cjs-module-lexer
 ```
 
-`@esm.sh/cjs-module-lexer` provides a `parse` function that detects the `module.exports` of a commonjs module. The function returns an object with two properties: `exports` and `reexports`. The `exports` property is an array of the exported names, and the `reexports` property is an array of the reexported modules.
+cjs-module-lexer provides a `parse` function that detects the `module.exports` of a commonjs module. The function returns an object with two properties: `exports` and `reexports`. The `exports` property is an array of the exported names, and the `reexports` property is an array of the reexported modules.
 
 ```js
 const { parse } = require("@esm.sh/cjs-module-lexer");
