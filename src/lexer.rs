@@ -20,7 +20,7 @@ pub struct FnDesc {
   extends: Vec<String>,
 }
 
-pub struct CJSLexer {
+pub struct ModuleLexer {
   pub node_env: String,
   pub call_mode: bool,
   pub fn_returned: bool,
@@ -30,7 +30,7 @@ pub struct CJSLexer {
   pub reexports: IndexSet<String>,
 }
 
-impl CJSLexer {
+impl ModuleLexer {
   fn clear(&mut self) {
     self.named_exports.clear();
     self.reexports.clear();
@@ -546,7 +546,7 @@ impl CJSLexer {
       Expr::Call(call) => match webpack_require_sym {
         Some(webpack_require_sym) => {
           if let Some(Expr::Member(MemberExpr { obj, prop, .. })) = with_expr_callee(call) {
-            if let (Expr::Ident(Ident { sym: obj_sym, .. }), MemberProp::Ident(Ident { sym: prop_sym, .. })) =
+            if let (Expr::Ident(Ident { sym: obj_sym, .. }), MemberProp::Ident(IdentName { sym: prop_sym, .. })) =
               (&**obj, &*prop)
             {
               if obj_sym.as_ref().eq(webpack_require_sym) && prop_sym.as_ref().eq("r") {
@@ -612,7 +612,7 @@ impl CJSLexer {
           for expr in exprs {
             if let Expr::Call(call) = &**expr {
               if let Some(Expr::Member(MemberExpr { obj, prop, .. })) = with_expr_callee(call) {
-                if let (Expr::Ident(Ident { sym: obj_sym, .. }), MemberProp::Ident(Ident { sym: prop_sym, .. })) =
+                if let (Expr::Ident(Ident { sym: obj_sym, .. }), MemberProp::Ident(IdentName { sym: prop_sym, .. })) =
                   (&**obj, &*prop)
                 {
                   if !obj_sym.as_ref().eq(webpack_require_sym) {
@@ -631,7 +631,7 @@ impl CJSLexer {
                         for prop in props {
                           if let PropOrSpread::Prop(prop) = prop {
                             if let Prop::KeyValue(KeyValueProp {
-                              key: PropName::Ident(Ident { sym, .. }),
+                              key: PropName::Ident(IdentName { sym, .. }),
                               ..
                             }) = &**prop
                             {
@@ -661,7 +661,7 @@ impl CJSLexer {
       .map(|prop| match prop {
         PropOrSpread::Prop(prop) => match &**prop {
           Prop::KeyValue(KeyValueProp {
-            key: PropName::Ident(Ident { sym, .. }),
+            key: PropName::Ident(IdentName { sym, .. }),
             ..
           }) => {
             let sym_ref = sym.as_ref();
@@ -695,7 +695,7 @@ impl CJSLexer {
                     if let AssignTarget::Simple(simple) = &left {
                       if let SimpleAssignTarget::Member(MemberExpr {
                         obj,
-                        prop: MemberProp::Ident(Ident { sym: prop_sym, .. }),
+                        prop: MemberProp::Ident(IdentName { sym: prop_sym, .. }),
                         ..
                       }) = &simple
                       {
@@ -729,7 +729,7 @@ impl CJSLexer {
               if let AssignTarget::Simple(simple) = &left {
                 if let SimpleAssignTarget::Member(MemberExpr {
                   obj,
-                  prop: MemberProp::Ident(Ident { sym: prop_sym, .. }),
+                  prop: MemberProp::Ident(IdentName { sym: prop_sym, .. }),
                   ..
                 }) = &simple
                 {
@@ -908,7 +908,7 @@ impl CJSLexer {
                           let obj_name = obj_id.sym.as_ref();
                           if let Some(mut props) = self.as_obj(&obj) {
                             props.push(PropOrSpread::Prop(Box::new(Prop::KeyValue(KeyValueProp {
-                              key: PropName::Ident(quote_ident(&key)),
+                              key: PropName::Ident(IdentName::from(key)),
                               value: Box::new(Expr::Lit(Lit::Bool(Bool {
                                 span: DUMMY_SP,
                                 value: true,
@@ -1491,7 +1491,7 @@ impl CJSLexer {
   }
 
   fn walk_body(&mut self, body: Vec<Stmt>, as_fn: bool) {
-    let mut lexer = CJSLexer {
+    let mut lexer = ModuleLexer {
       node_env: self.node_env.to_owned(),
       call_mode: false,
       fn_returned: false,
@@ -1507,7 +1507,7 @@ impl CJSLexer {
   }
 }
 
-impl Fold for CJSLexer {
+impl Fold for ModuleLexer {
   noop_fold_type!();
 
   fn fold_module_items(&mut self, items: Vec<ModuleItem>) -> Vec<ModuleItem> {
@@ -1922,6 +1922,7 @@ fn stringify_prop_name(name: &PropName) -> Option<String> {
 fn quote_ident(value: &str) -> Ident {
   Ident {
     span: DUMMY_SP,
+    ctxt: Default::default(),
     sym: value.into(),
     optional: false,
   }

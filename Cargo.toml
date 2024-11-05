@@ -1,27 +1,24 @@
 [package]
-name = "esm-cjs-lexer"
-version = "0.11.2"
-description = "A WASM module to parse the `module.exports` of a commonjs module."
-repository = "https://github.com/esm-dev/esm-cjs-lexer"
-license = "MIT"
+name = "cjs-module-lexer"
+version = "0.0.0"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-indexmap = "2.2.6"
-serde = { version = "1.0.203", features = ["derive"] }
+indexmap = "2.6.0"
+serde = { version = "1.0.214", features = ["derive"] }
 
 # swc
 # docs: https://swc.rs
 # crate: https://crates.io/search?q=swc
-swc_common = { version = "0.34.3" }
-swc_ecmascript = { version = "0.244.1", features = ["parser", "visit"] }
+swc_common = { version = "3.0.0" }
+swc_ecmascript = { version = "4.0.0", features = ["parser", "visit"] }
 
 # wasm-bindgen
 # docs: https://rustwasm.github.io/docs/wasm-bindgen
-wasm-bindgen = { version = "0.2.92", features = ["serde-serialize"] }
+wasm-bindgen = { version = "0.2.95", features = ["serde-serialize"] }
 serde-wasm-bindgen = "0.6.5"
 getrandom = { version = "0.2.15", features = ["js"] }
 

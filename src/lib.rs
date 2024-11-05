@@ -1,4 +1,4 @@
-mod cjs;
+mod lexer;
 mod error;
 mod swc;
 mod test;
