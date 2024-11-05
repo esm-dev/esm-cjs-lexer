@@ -1,19 +1,19 @@
-# esm-cjs-lexer
+# @esm.sh/cjs-module-lexer
 
-A wasm module for detecting the `module.exports` of a CJS module, powered by [swc](https://github.com/swc-project/swc).
+A lexer for detecting the `module.exports` of a CJS module, written in Rust and compiled to WebAssembly.
 
 ## Usage
 
-esm-cjs-lexer currently only supports Node.js environment. You can install it via npm CLI:
+`@esm.sh/cjs-module-lexer` currently only supports Node.js environment. You can install it via npm CLI:
 
 ```bash
-npm i esm-cjs-lexer
+npm i @esm.sh/cjs-module-lexer
 ```
 
-esm-cjs-lexer provides a `parse` function that detects the `module.exports` of a commonjs module. The function returns an object with two properties: `exports` and `reexports`. The `exports` property is an array of the exported names, and the `reexports` property is an array of the reexported modules.
+`@esm.sh/cjs-module-lexer` provides a `parse` function that detects the `module.exports` of a commonjs module. The function returns an object with two properties: `exports` and `reexports`. The `exports` property is an array of the exported names, and the `reexports` property is an array of the reexported modules.
 
 ```js
-const { parse } = require("esm-cjs-lexer");
+const { parse } = require("@esm.sh/cjs-module-lexer");
 
 // named exports by assignment
 // exports: ["a", "b", "c", "__esModule", "foo"]
