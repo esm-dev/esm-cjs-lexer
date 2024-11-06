@@ -1,6 +1,6 @@
 # cjs-module-lexer
 
-A lexer for detecting the `module.exports` of a CJS module, written in Rust and compiled to WebAssembly.
+A lexer for detecting the `module.exports` of a CJS module, written in Rust.
 
 ## Usage
 
