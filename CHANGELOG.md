@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.0
+
+- Publish package under `@esm.sh` scope
+- Upgrade swc_esmascript 4.0.0
+
 ## 0.11.0
 
 - Check IIFE block under `&&` binary expression (close #1)
